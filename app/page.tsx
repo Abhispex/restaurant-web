@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import MenuCard from "./components/MenuCard";
+import MenuSkeleton from "./components/MenuSkeleton";
 
 
 export default function Home() {
@@ -11,23 +12,56 @@ export default function Home() {
   description: string;
   price: string;
   category: string;
+  image: string;
 };
 
 const [menu, setMenu] = useState<MenuItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState("All");
-  useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu`)
-      .then((res) => res.json())
-      .then((data) => {
-        setMenu(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Failed to fetch menu:", err);
-        setLoading(false);
-      });
-  }, []);
+const [loading, setLoading] = useState(true);
+const [selectedCategory, setSelectedCategory] = useState("All");
+
+
+useEffect(() => {
+  const loadMenu = async () => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+    if (!API_URL) {
+      console.error("NEXT_PUBLIC_API_URL is not defined");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/menu`);
+
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+
+      const data = await res.json();
+      setMenu(data);
+    } catch (err) {
+      console.error("Failed to fetch menu:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  loadMenu();
+}, []);
+
+
+
+if (loading) {
+  return <MenuSkeleton />;
+}
+
+if (!menu || menu.length === 0) {
+  return (
+    <div className="text-center py-20 text-gray-400">
+      Menu not available right now
+    </div>
+  );
+}
 
   const filteredMenu =
   selectedCategory === "All"
@@ -105,22 +139,19 @@ const [menu, setMenu] = useState<MenuItem[]>([]);
           <p className="text-center text-white/60">Loading menu...</p>
         ) : (
 
- <motion.div
-  layout
-  className="grid grid-cols-1 md:grid-cols-3 gap-6"
->
-  {filteredMenu.map((item, index) => (
+<AnimatePresence>
+  {filteredMenu.map((item) => (
     <motion.div
-      key={`${item.name}-${item.category}`}
-      layout
+      key={item.name}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.05 }}
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ duration: 0.35, ease: "easeOut" }}
     >
       <MenuCard item={item} />
     </motion.div>
   ))}
-</motion.div>
+</AnimatePresence>
 
         )}
       </section>
