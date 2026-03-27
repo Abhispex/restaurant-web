@@ -8,19 +8,33 @@ export function useMenu() {
 
   useEffect(() => {
     const controller = new AbortController();
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
+    const baseUrl = (process.env.NEXT_PUBLIC_API_URL ?? "").trim().replace(/\/+$/, "");
+    const fallbackUrl = "https://restaurant-api-jbw2.onrender.com";
+    const urlsToTry = [baseUrl, fallbackUrl].filter((url, index, arr) => Boolean(url) && arr.indexOf(url) === index);
 
     async function loadMenu() {
       try {
-        const res = await fetch(`${baseUrl}/menu`, {
-          signal: controller.signal,
-        });
+        let data: MenuItem[] | null = null;
 
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
+        for (const url of urlsToTry) {
+          try {
+            const res = await fetch(`${url}/menu`, {
+              signal: controller.signal,
+            });
+            if (!res.ok) continue;
+            data = (await res.json()) as MenuItem[];
+            break;
+          } catch (error: unknown) {
+            if ((error as { name?: string }).name === "AbortError") {
+              throw error;
+            }
+          }
         }
 
-        const data: MenuItem[] = await res.json();
+        if (!data) {
+          throw new Error("Unable to load menu from configured API URLs.");
+        }
+
         setMenu(data);
       } catch (err: unknown) {
         if ((err as { name?: string }).name !== "AbortError") {
